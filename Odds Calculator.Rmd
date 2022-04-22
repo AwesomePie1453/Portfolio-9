@@ -1,0 +1,44 @@
+---
+title: "Odds Generator"
+author: "AwesomePie1453"
+date: "4/22/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Introduction
+
+Back in Portfolio 7, I used an odds calculator to determine what the implied probabilities of future odds would be. In this lab, I want to adapt that, creating myself several calculators I can use for future use. I would like to be able to put in my own probabilities of an event to happen, and have it spit out the gambling odds for me. Here we go! 
+
+```{r load}
+library(implied)
+library(tidyverse)
+library(odds.converter)
+```
+
+### Start creating an odds calculator
+
+As you can see on the original implied probability document I made, there are many different methods. I am just going to pick one and stick to it. I will be using the Odds Ratio Method.
+
+First, I have to add probabilies. I am going to use the first 5 games today in the MLB slate (4/22)
+
+```{r Odds}
+April_22_MLB_Odds <- rbind(c(2.50, 1.549),
+                       c(1.80, 2.05),
+                       c(2.56, 1.526),
+                       c(2.05, 1.80),
+                       c(1.741, 2.13))
+colnames(April_22_MLB_Odds) <- c("Home", "Away")
+rownames(April_22_MLB_Odds) <- c("Pirates vs Cubs", "Cardinals vs Reds", "Guardians vs Yankees", "Brewers vs Phillies", "Giants vs Nationals")
+April_22_MLB_Odds
+```
+Now transform them into probabilities, using the Odds Ratio Method
+
+```{r prob}
+April22_MLB <- implied_probabilities(April_22_MLB_Odds, method = "or")
+April22_MLB$probabilities
+```
+
