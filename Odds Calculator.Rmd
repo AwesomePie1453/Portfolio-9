@@ -21,7 +21,7 @@ library(odds.converter)
 
 ### Start creating an odds calculator
 
-As you can see on the original implied probability document I made, there are many different methods. I am just going to pick one and stick to it. I will be using the Odds Ratio Method.
+As you can see on the original implied probability document I made, there are many different methods. I am just going to pick one and stick to it. I will be using the Margin Weights Proportion to the Odds method.
 
 First, I have to add probabilies. I am going to use the first 5 games today in the MLB slate (4/22)
 
@@ -35,10 +35,162 @@ colnames(April_22_MLB_Odds) <- c("Home", "Away")
 rownames(April_22_MLB_Odds) <- c("Pirates vs Cubs", "Cardinals vs Reds", "Guardians vs Yankees", "Brewers vs Phillies", "Giants vs Nationals")
 April_22_MLB_Odds
 ```
-Now transform them into probabilities, using the Odds Ratio Method
+Now transform them into probabilities, using the Weights Proportion to the Odds method
 
 ```{r prob}
-April22_MLB <- implied_probabilities(April_22_MLB_Odds, method = "or")
+April22_MLB <- implied_probabilities(April_22_MLB_Odds, method = "wpo")
 April22_MLB$probabilities
 ```
 
+Now lets see if we can do the opposite.
+
+
+```{r}
+April_22_MLB_Prob <- rbind(c( 0.3772111, 0.6227889),
+                       c(0.5338753,0.4661247),
+                       c(0.3676585, 0.6323415))
+colnames(April_22_MLB_Prob) <- c("Home", "Away")
+rownames(April_22_MLB_Prob) <- c("Pirates vs Cubs", "Cardinals vs Reds", "Guardians vs Yankees")
+April_22_MLB_Prob
+```
+I played with the margin until i found that .045 was the best with the wpo method.
+
+```{r implied2}
+April22_MLB_Implied<- implied_odds(
+  April_22_MLB_Prob,
+  method = "wpo",
+  margin=0.045
+  )
+April22_MLB_Implied
+```
+
+Time to see if we can make a function to do this for any number we plug in. We will start with 40%. First lets put this, (as well as a value of 50%) into a matrix and get the betting odds
+
+```{r Trial}
+Trial <- rbind(c(0.40000, 0.60000),
+                c(.5, .5))
+colnames(Trial) <- paste0("Col", 1:2)
+rownames(Trial) <- paste0("Row", 1:2)
+Trial
+```
+
+```{r trial2}
+Trial2 <- implied_odds(
+  Trial,
+  method = "wpo",
+  margin=0.045
+  )
+Trial2
+```
+
+Perfect! Now, would we be able to isolate a particular value(s) from the matrix, and then make those american odds?
+
+```{r trialMatrix}
+Trial_Matrix <- Trial2$odds[c("Row1"),
+                        c("Col1", "Col2")]
+Trial_Matrix
+```
+
+```{r}
+odds.dec2us(Trial_Matrix)
+```
+
+
+Let's run this backward to see if this worked!
+```{r backward}
+odds.us2dec(136.684)
+odds.us2dec(-164.9007)
+```
+
+
+```{r probback}
+Trial_Prob <- rbind(c(2.36684, 1.606426))
+Trial_Prob2 <- implied_probabilities(Trial_Prob)
+Trial_Prob2$probabilities
+```
+which is about 40% and 60%! slight differences, but oh well!
+Noww.... to turn it into a function.
+
+### Function
+
+```{r function}
+Prob_to_odds <- function(prob1, prob2){
+  Probabilities <- rbind(c(prob1, prob2))
+  Implied_Odds <- implied_odds(
+  Probabilities,
+  method = "wpo",
+  margin=0.045
+  )
+  odds.dec2us(Implied_Odds$odds)
+}
+```
+
+Which, if you run this with (.40, .60) you will get +137 and -165 rounded, which is what we got before! The function works!
+
+I am also going to make a function for multiple games at once, and one for if the game has 3 outcomes
+
+```{r multiple}
+Prob_to_odds_multiple <- function(prob1, prob2, prob3, prob4, prob5, prob6){
+  Probabilities <- rbind(c(prob1, prob2),
+                         c(prob3, prob4),
+                         c(prob5, prob6))
+  Implied_Odds <- implied_odds(
+  Probabilities,
+  method = "wpo",
+  margin=0.045
+  )
+  odds.dec2us(Implied_Odds$odds)
+}
+```
+
+```{r three}
+Prob_to_odds_three <- function(prob1, prob2, prob3){
+  Probabilities <- rbind(c(prob1, prob2, prob3))
+  Implied_Odds <- implied_odds(
+  Probabilities,
+  method = "wpo",
+  margin=0.045
+  )
+  odds.dec2us(Implied_Odds$odds)
+}
+```
+
+One last thing Ill do despite spending way too much time on this, I'm going to create a function that allows me to see the difference between my projected odds, and the actual bookmaker odds. 
+
+```{r comparison}
+Odds_comparison <- function(MyProb1, MyProb2, BookOdds1, BookOdds2){
+  Probabilities <- rbind(c(MyProb1, MyProb2))
+  colnames(Probabilities) <- paste0("Col", 1:2)
+  rownames(Probabilities) <- paste0("Row", 1)
+  Implied_Odds <- implied_odds(
+  Probabilities,
+  method = "wpo",
+  margin=0.045
+  )
+  MyOdds <- odds.dec2us(Implied_Odds$odds)
+  MyOdds2 <- MyOdds[c("Row1"),
+                    c("Col1")]
+  MyOdds3 <- MyOdds[c("Row1"),
+                    c("Col2")]
+  Difference1 <- BookOdds1 - MyOdds2
+  Difference2 <- BookOdds2 - MyOdds3
+  print(Difference1)
+  print(Difference2)
+}
+```
+
+Now that this all works. Let's try this last one out. Tomorrow, at 4:10pm, The Toronto Blue Jays and starting pitcher Alek Manoah take on Jose Urquidy and the Houston AStros. I believe that there is a 53% chance that the Blue Jays win tomorrow. The betting odds are -125 for the Jays. Lets plug in these numbers and see how far I was off
+
+```{r JaysAstros}
+Odds_comparison(.53, .47, -125, 105)
+```
+Wow, only 1 to 2 cents? thats pretty crazy. I'm going to double check the numbers of my percentages with my original function
+
+```{r JaysTest}
+Prob_to_odds(.53, .47)
+```
+
+-123 and +103, as opposed to -125 and +105. Crazy. Go me.
+
+
+Well that's it for this portfolio! Took me a long time but really happy with it. Only thing i could change is I will probably make the funciton names easier to type. But thats a problem for another day. Thanks!

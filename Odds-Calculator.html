@@ -190,7 +190,7 @@ pre code {
 </div>
 <div id="start-creating-an-odds-calculator" class="section level3">
 <h3>Start creating an odds calculator</h3>
-<p>As you can see on the original implied probability document I made, there are many different methods. I am just going to pick one and stick to it. I will be using the Odds Ratio Method.</p>
+<p>As you can see on the original implied probability document I made, there are many different methods. I am just going to pick one and stick to it. I will be using the Margin Weights Proportion to the Odds method.</p>
 <p>First, I have to add probabilies. I am going to use the first 5 games today in the MLB slate (4/22)</p>
 <pre class="r"><code>April_22_MLB_Odds &lt;- rbind(c(2.50, 1.549),
                        c(1.80, 2.05),
@@ -206,15 +206,152 @@ April_22_MLB_Odds</code></pre>
 ## Guardians vs Yankees 2.560 1.526
 ## Brewers vs Phillies  2.050 1.800
 ## Giants vs Nationals  1.741 2.130</code></pre>
-<p>Now transform them into probabilities, using the Odds Ratio Method</p>
-<pre class="r"><code>April22_MLB &lt;- implied_probabilities(April_22_MLB_Odds, method = &quot;or&quot;)
+<p>Now transform them into probabilities, using the Weights Proportion to the Odds method</p>
+<pre class="r"><code>April22_MLB &lt;- implied_probabilities(April_22_MLB_Odds, method = &quot;wpo&quot;)
 April22_MLB$probabilities</code></pre>
-<pre><code>##           Home      Away
-## [1,] 0.3769391 0.6230609
-## [2,] 0.5339394 0.4660606
-## [3,] 0.3673576 0.6326424
-## [4,] 0.4660606 0.5339394
-## [5,] 0.5525517 0.4474483</code></pre>
+<pre><code>##                           Home      Away
+## Pirates vs Cubs      0.3772111 0.6227889
+## Cardinals vs Reds    0.5338753 0.4661247
+## Guardians vs Yankees 0.3676585 0.6323415
+## Brewers vs Phillies  0.4661247 0.5338753
+## Giants vs Nationals  0.5524495 0.4475505</code></pre>
+<p>Now lets see if we can do the opposite.</p>
+<pre class="r"><code>April_22_MLB_Prob &lt;- rbind(c( 0.3772111, 0.6227889),
+                       c(0.5338753,0.4661247),
+                       c(0.3676585, 0.6323415))
+colnames(April_22_MLB_Prob) &lt;- c(&quot;Home&quot;, &quot;Away&quot;)
+rownames(April_22_MLB_Prob) &lt;- c(&quot;Pirates vs Cubs&quot;, &quot;Cardinals vs Reds&quot;, &quot;Guardians vs Yankees&quot;)
+April_22_MLB_Prob</code></pre>
+<pre><code>##                           Home      Away
+## Pirates vs Cubs      0.3772111 0.6227889
+## Cardinals vs Reds    0.5338753 0.4661247
+## Guardians vs Yankees 0.3676585 0.6323415</code></pre>
+<p>I played with the margin until i found that .045 was the best with the wpo method.</p>
+<pre class="r"><code>April22_MLB_Implied&lt;- implied_odds(
+  April_22_MLB_Prob,
+  method = &quot;wpo&quot;,
+  margin=0.045
+  )
+April22_MLB_Implied</code></pre>
+<pre><code>## $odds
+##                          Home     Away
+## Pirates vs Cubs      2.501807 1.549693
+## Cardinals vs Reds    1.797348 2.046560
+## Guardians vs Yankees 2.563061 1.527087
+## 
+## $specific_margins
+##                            Home       Away
+## Pirates vs Cubs      0.05964830 0.03612781
+## Cardinals vs Reds    0.04214467 0.04827034
+## Guardians vs Yankees 0.06119810 0.03558204</code></pre>
+<p>Time to see if we can make a function to do this for any number we plug in. We will start with 40%. First lets put this, (as well as a value of 50%) into a matrix and get the betting odds</p>
+<pre class="r"><code>Trial &lt;- rbind(c(0.40000, 0.60000),
+                c(.5, .5))
+colnames(Trial) &lt;- paste0(&quot;Col&quot;, 1:2)
+rownames(Trial) &lt;- paste0(&quot;Row&quot;, 1:2)
+Trial</code></pre>
+<pre><code>##      Col1 Col2
+## Row1  0.4  0.6
+## Row2  0.5  0.5</code></pre>
+<pre class="r"><code>Trial2 &lt;- implied_odds(
+  Trial,
+  method = &quot;wpo&quot;,
+  margin=0.045
+  )
+Trial2</code></pre>
+<pre><code>## $odds
+##          Col1     Col2
+## Row1 2.366864 1.606426
+## Row2 1.913876 1.913876
+## 
+## $specific_margins
+##         Col1   Col2
+## Row1 0.05625 0.0375
+## Row2 0.04500 0.0450</code></pre>
+<p>Perfect! Now, would we be able to isolate a particular value(s) from the matrix, and then make those american odds?</p>
+<pre class="r"><code>Trial_Matrix &lt;- Trial2$odds[c(&quot;Row1&quot;),
+                        c(&quot;Col1&quot;, &quot;Col2&quot;)]
+Trial_Matrix</code></pre>
+<pre><code>##     Col1     Col2 
+## 2.366864 1.606426</code></pre>
+<pre class="r"><code>odds.dec2us(Trial_Matrix)</code></pre>
+<pre><code>##      Col1      Col2 
+##  136.6864 -164.9007</code></pre>
+<p>Let’s run this backward to see if this worked!</p>
+<pre class="r"><code>odds.us2dec(136.684)</code></pre>
+<pre><code>## [1] 2.36684</code></pre>
+<pre class="r"><code>odds.us2dec(-164.9007)</code></pre>
+<pre><code>## [1] 1.606426</code></pre>
+<pre class="r"><code>Trial_Prob &lt;- rbind(c(2.36684, 1.606426))
+Trial_Prob2 &lt;- implied_probabilities(Trial_Prob)
+Trial_Prob2$probabilities</code></pre>
+<pre><code>##           [,1]      [,2]
+## [1,] 0.4043087 0.5956913</code></pre>
+<p>which is about 40% and 60%! slight differences, but oh well! Noww…. to turn it into a function.</p>
+</div>
+<div id="function" class="section level3">
+<h3>Function</h3>
+<pre class="r"><code>Prob_to_odds &lt;- function(prob1, prob2){
+  Probabilities &lt;- rbind(c(prob1, prob2))
+  Implied_Odds &lt;- implied_odds(
+  Probabilities,
+  method = &quot;wpo&quot;,
+  margin=0.045
+  )
+  odds.dec2us(Implied_Odds$odds)
+}</code></pre>
+<p>Which, if you run this with (.40, .60) you will get +137 and -165 rounded, which is what we got before! The function works!</p>
+<p>I am also going to make a function for multiple games at once, and one for if the game has 3 outcomes</p>
+<pre class="r"><code>Prob_to_odds_multiple &lt;- function(prob1, prob2, prob3, prob4, prob5, prob6){
+  Probabilities &lt;- rbind(c(prob1, prob2),
+                         c(prob3, prob4),
+                         c(prob5, prob6))
+  Implied_Odds &lt;- implied_odds(
+  Probabilities,
+  method = &quot;wpo&quot;,
+  margin=0.045
+  )
+  odds.dec2us(Implied_Odds$odds)
+}</code></pre>
+<pre class="r"><code>Prob_to_odds_three &lt;- function(prob1, prob2, prob3){
+  Probabilities &lt;- rbind(c(prob1, prob2, prob3))
+  Implied_Odds &lt;- implied_odds(
+  Probabilities,
+  method = &quot;wpo&quot;,
+  margin=0.045
+  )
+  odds.dec2us(Implied_Odds$odds)
+}</code></pre>
+<p>One last thing Ill do despite spending way too much time on this, I’m going to create a function that allows me to see the difference between my projected odds, and the actual bookmaker odds.</p>
+<pre class="r"><code>Odds_comparison &lt;- function(MyProb1, MyProb2, BookOdds1, BookOdds2){
+  Probabilities &lt;- rbind(c(MyProb1, MyProb2))
+  colnames(Probabilities) &lt;- paste0(&quot;Col&quot;, 1:2)
+  rownames(Probabilities) &lt;- paste0(&quot;Row&quot;, 1)
+  Implied_Odds &lt;- implied_odds(
+  Probabilities,
+  method = &quot;wpo&quot;,
+  margin=0.045
+  )
+  MyOdds &lt;- odds.dec2us(Implied_Odds$odds)
+  MyOdds2 &lt;- MyOdds[c(&quot;Row1&quot;),
+                    c(&quot;Col1&quot;)]
+  MyOdds3 &lt;- MyOdds[c(&quot;Row1&quot;),
+                    c(&quot;Col2&quot;)]
+  Difference1 &lt;- BookOdds1 - MyOdds2
+  Difference2 &lt;- BookOdds2 - MyOdds3
+  print(Difference1)
+  print(Difference2)
+}</code></pre>
+<p>Now that this all works. Let’s try this last one out. Tomorrow, at 4:10pm, The Toronto Blue Jays and starting pitcher Alek Manoah take on Jose Urquidy and the Houston AStros. I believe that there is a 53% chance that the Blue Jays win tomorrow. The betting odds are -125 for the Jays. Lets plug in these numbers and see how far I was off</p>
+<pre class="r"><code>Odds_comparison(.53, .47, -125, 105)</code></pre>
+<pre><code>## [1] -1.536313
+## [1] 1.954315</code></pre>
+<p>Wow, only 1 to 2 cents? thats pretty crazy. I’m going to double check the numbers of my percentages with my original function</p>
+<pre class="r"><code>Prob_to_odds(.53, .47)</code></pre>
+<pre><code>##           [,1]     [,2]
+## [1,] -123.4637 103.0457</code></pre>
+<p>-123 and +103, as opposed to -125 and +105. Crazy. Go me.</p>
+<p>Well that’s it for this portfolio! Took me a long time but really happy with it. Only thing i could change is I will probably make the funciton names easier to type. But thats a problem for another day. Thanks!</p>
 </div>
 
 
